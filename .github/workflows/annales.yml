@@ -56,7 +56,7 @@ jobs:
       - name: Generate the gRPC stubs
         run: |
           mkdir -p gen
-          protoc -Ischema --go_out=paths=source_relative:server/gen --go-grpc_out=paths=source_relative:server/gen https://github.com/spoletum/schemas/annales.proto
+          protoc -Ischema --go_out=paths=source_relative:server/gen --go-grpc_out=paths=source_relative:server/gen https://raw.githubusercontent.com/spoletum/schemas/main/annales.proto
 
       - name: Go test
         run: go test ./...
