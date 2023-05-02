@@ -57,7 +57,7 @@ jobs:
         run: |
           curl -LOs https://raw.githubusercontent.com/spoletum/schemas/main/annales.proto
           mkdir -p gen
-          protoc -Ischema --go_out=paths=source_relative:server/gen --go-grpc_out=paths=source_relative:server/gen annales.proto
+          protoc -I. --go_out=paths=source_relative:gen --go-grpc_out=paths=source_relative:gen annales.proto
 
       - name: Go test
         run: go test ./...
