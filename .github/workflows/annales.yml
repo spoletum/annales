@@ -53,11 +53,10 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Create folder for thee gRPC stubs
-        run: mkdir -p gen
-
       - name: Generate the gRPC stubs
-        run: protoc -Ischema --go_out=paths=source_relative:server/gen --go-grpc_out=paths=source_relative:server/gen schema/eventstore.proto
+        run: |
+          mkdir -p gen
+          protoc -Ischema --go_out=paths=source_relative:server/gen --go-grpc_out=paths=source_relative:server/gen https://github.com/spoletum/schemas/annales.proto
 
       - name: Go test
         run: go test ./...
