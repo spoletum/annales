@@ -8,9 +8,13 @@ env:
   PROTOC_OPTS: -Ischema --go_out=paths=source_relative:server/gen --go-grpc_out=paths=source_relative:server/gen schema/eventstore.proto
 
 jobs:
+
   Compile:
+
     runs-on: ubuntu-latest
+
     services:
+
       postgres:
         image: postgres:15.2
         ports:
@@ -19,16 +23,41 @@ jobs:
           POSTGRES_DB: $POSTGRES_DB
           POSTGRES_USER: $POSTGRES_USER
           POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+
       mongo:
         image: mongo:6.0
         ports:
           - 27017:27017
+
     steps:
+
+      - name: Install Protoc
+        run: |
+          curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v22.3/protoc-22.3-linux-x86_64.zip 
+          sudo unzip protoc.zip -d /usr/local bin/protoc
+          sudo chmod +x /usr/local/bin/protoc
+          rm protoc.zip        
+
       - name: Setup Golang
         uses: actions/setup-go@v4
+
+      - name: Install Go protobuf and gRPC plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
+          echo "$GOPATH/bin" >> $GITHUB_PATH
+
       - name: Checkout Code
         uses: actions/checkout@v3
+
       - name: Download dependencies
         run: go mod download
+
+      - name: Create folder for thee gRPC stubs
+        run: mkdir -p gen
+
+      - name: Generate the gRPC stubs
+        run: protoc -Ischema --go_out=paths=source_relative:server/gen --go-grpc_out=paths=source_relative:server/gen schema/eventstore.proto
+
       - name: Go test
         run: go test ./...
