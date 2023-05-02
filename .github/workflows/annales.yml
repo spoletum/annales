@@ -55,7 +55,7 @@ jobs:
 
       - name: Generate the gRPC stubs
         run: |
-          curl -LO annales.proto https://raw.githubusercontent.com/spoletum/schemas/main/annales.proto
+          curl -LOs https://raw.githubusercontent.com/spoletum/schemas/main/annales.proto
           mkdir -p gen
           protoc -Ischema --go_out=paths=source_relative:server/gen --go-grpc_out=paths=source_relative:server/gen annales.proto
 
