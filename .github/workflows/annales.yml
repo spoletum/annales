@@ -1,0 +1,34 @@
+on: [ push ]
+
+env:
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: password123
+  POSTGRES_DB: test
+  POSTGRES_URL: postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB?sslmode=disable
+  PROTOC_OPTS: -Ischema --go_out=paths=source_relative:server/gen --go-grpc_out=paths=source_relative:server/gen schema/eventstore.proto
+
+jobs:
+  Compile:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15.2
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_DB: $POSTGRES_DB
+          POSTGRES_USER: $POSTGRES_USER
+          POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+      mongo:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+    steps:
+      - name: Setup Golang
+        uses: actions/setup-go@4
+      - name: Checkout Code
+        uses: actions/checkout@v3
+      - name: Download dependencies
+        run: go mod download
+      - name: Go test
+        run: go test ./...
