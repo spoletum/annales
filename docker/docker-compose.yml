@@ -12,28 +12,19 @@ services:
     networks:
       - annales
 
-  postgres:
-    image: postgres:15
-    container_name: postgres
-    hostname: postgres
-    environment:
-      POSTGRES_PASSWORD: password123
-    ports:
-      - 5432:5432
-    volumes:
-      - ../pkg/postgres/base.sql:/docker-entrypoint-initdb.d/init.sql 
-      - ../postgres:/var/lib/postgresql/data     
-    networks:
-      - annales
-
-  redis:
-    image: redis:7
-    container_name: redis
-    hostname: redis
-    ports:
-      - 6379:6379
-    networks:
-      - annales
+  # postgres:
+  #   image: postgres:15
+  #   container_name: postgres
+  #   hostname: postgres
+  #   environment:
+  #     POSTGRES_PASSWORD: password123
+  #   ports:
+  #     - 5432:5432
+  #   volumes:
+  #     - ../pkg/postgres/base.sql:/docker-entrypoint-initdb.d/init.sql
+  #     - ../postgres:/var/lib/postgresql/data
+  #   networks:
+  #     - annales
 
 networks:
   annales:

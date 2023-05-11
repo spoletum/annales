@@ -75,7 +75,16 @@ func (v *Validator) Error() error {
 func NotEmpty() Rule {
 	return func(value interface{}) error {
 		if str, ok := value.(*string); ok && *str == "" {
-			return errors.New("value cannot be empty")
+			return errors.New("string cannot be empty")
+		}
+		return nil
+	}
+}
+
+func NotEmptyArray() Rule {
+	return func(value interface{}) error {
+		if arr, ok := value.(*[]any); ok && len(*arr) == 0 {
+			return errors.New("array cannot be empty")
 		}
 		return nil
 	}

@@ -114,7 +114,7 @@ func startServer(ctx *cli.Context) error {
 	}()
 
 	// Create the MongoDB Driver
-	driver, err = mongodb.NewMongoJournal(context.Background(), client, "eventstore")
+	driver, err = mongodb.NewMongoJournal(context.Background(), client, "eventstore", 100)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Error starting the MongoDB driver")
 	}

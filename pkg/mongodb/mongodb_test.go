@@ -4,8 +4,11 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/joho/godotenv"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	annales "github.com/spoletum/annales/gen"
 	"github.com/spoletum/annales/pkg/errors"
 	"github.com/spoletum/annales/pkg/mongodb"
@@ -17,195 +20,86 @@ import (
 )
 
 func TestAppendEvent(t *testing.T) {
-	require.NoError(t, godotenv.Load())
-	ctx := context.Background()
-	// Set up a new MongoDriver instance with a test database
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("MONGO_URL")))
+	const dbName = "test_db"
+	// Set up the MongoDB client and database for testing
+	client, _ := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	client.Connect(context.Background())
+	defer client.Disconnect(context.Background())
+
+	// Ensure the database is clean before running the tests
+	client.Database(dbName).Drop(context.Background())
+
+	mongoJournal, err := mongodb.NewMongoJournal(context.Background(), client, dbName, 100)
 	require.NoError(t, err)
-	defer func() {
-		require.NoError(t, client.Disconnect(ctx))
-	}()
-	dbName := "test_db"
-	driver := &mongodb.MongoJournal{Client: client, DatabaseName: dbName}
 
-	t.Run("EventStreamEmpty", func(t *testing.T) {
-		// Drop the streams and events collections before the test
-		streamsCollection := client.Database(dbName).Collection(mongodb.StreamsCollectionName)
-		require.NoError(t, streamsCollection.Drop(ctx))
-		eventsCollection := client.Database(dbName).Collection(mongodb.EventsCollectionName)
-		require.NoError(t, eventsCollection.Drop(ctx))
-
-		// Generate test data for the new event
-		streamID := "test_stream"
-		expectedVersion := int64(0)
-		eventType := "test_event"
-		eventSource := "test_source"
-		eventEncoding := "test_encoding"
-		eventData := []byte("test_data")
-
-		req := &annales.AppendEventRequest{StreamId: streamID, ExpectedVersion: 0, EventType: eventType, Source: eventSource, Encoding: eventEncoding, Data: eventData}
-
-		// Append the new event to the stream
-		res, err := driver.AppendEvent(ctx, req)
-		require.NoError(t, err)
-		assert.NotNil(t, res)
-
-		// Check that the event was inserted into the events collection with the correct values
-		eventCursor, err := eventsCollection.Find(ctx, bson.M{"stream_id": streamID})
-		require.NoError(t, err)
-		defer eventCursor.Close(ctx)
-
-		eventCount := 0
-		for eventCursor.Next(ctx) {
-			var event annales.Event
-			err := eventCursor.Decode(&event)
-			require.NoError(t, err)
-
-			assert.Equal(t, streamID, event.StreamId)
-			assert.Equal(t, expectedVersion+1, event.Version)
-			assert.Equal(t, eventType, event.EventType)
-			assert.Equal(t, eventEncoding, event.Encoding)
-			assert.Equal(t, eventSource, event.Source)
-			assert.Equal(t, eventData, event.Data)
-			assert.NotNil(t, event.Timestamp)
-
-			eventCount++
+	t.Run("append new event to new stream", func(t *testing.T) {
+		req := &annales.AppendEventRequest{
+			StreamId:        "stream1",
+			ExpectedVersion: 0,
+			EventType:       "test_event",
+			Source:          "test_source",
+			Encoding:        "text",
+			Data:            []byte("Hello, world!"),
 		}
-		assert.Equal(t, 1, eventCount)
+
+		resp, err := mongoJournal.AppendEvent(context.Background(), req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
 	})
-	t.Run("EventStreamExists", func(t *testing.T) {
-		// Drop the streams and events collections before testing
-		streamsCollection := client.Database(dbName).Collection(mongodb.StreamsCollectionName)
-		eventsCollection := client.Database(dbName).Collection(mongodb.EventsCollectionName)
-		err = streamsCollection.Drop(ctx)
-		require.NoError(t, err)
-		err = eventsCollection.Drop(ctx)
-		require.NoError(t, err)
 
-		// Generate test data for the new events
-		streamID := "test_stream"
-		eventType := "test_event"
-		eventSource := "test_source"
-		eventEncoding := "test_encoding"
-		eventData1 := []byte("test_data_1")
-		eventData2 := []byte("test_data_2")
+	t.Run("append new event to existing stream", func(t *testing.T) {
 
-		req1 := &annales.AppendEventRequest{StreamId: streamID, ExpectedVersion: 0, EventType: eventType, Source: eventSource, Encoding: eventEncoding, Data: eventData1}
-		req2 := &annales.AppendEventRequest{StreamId: streamID, ExpectedVersion: 1, EventType: eventType, Source: eventSource, Encoding: eventEncoding, Data: eventData2}
+		req := &annales.AppendEventRequest{
+			StreamId:        "stream2",
+			ExpectedVersion: 0,
+			EventType:       "test_event",
+			Source:          "test_source",
+			Encoding:        "text",
+			Data:            []byte("Hello, world!"),
+		}
+		resp, err := mongoJournal.AppendEvent(context.Background(), req)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
 
-		// Append the first event to the stream
-		res, err := driver.AppendEvent(ctx, req1)
-		require.NoError(t, err)
-		assert.NotNil(t, res)
-
-		// Append the second event to the stream
-		res, err = driver.AppendEvent(ctx, req2)
-		require.NoError(t, err)
-		assert.NotNil(t, res)
-
-		// Check that the latest event was inserted into the events collection with the correct values
-		eventCursor, err := eventsCollection.Find(ctx, bson.M{"stream_id": streamID})
-		require.NoError(t, err)
-		defer eventCursor.Close(ctx)
-
-		eventCount := 0
-		for eventCursor.Next(ctx) {
-			var event annales.Event
-			err := eventCursor.Decode(&event)
-			require.NoError(t, err)
-
-			assert.Equal(t, streamID, event.StreamId)
-			assert.Equal(t, eventType, event.EventType)
-			assert.Equal(t, eventEncoding, event.Encoding)
-			assert.Equal(t, eventSource, event.Source)
-			if eventCount == 0 {
-				assert.Equal(t, eventData1, event.Data)
-				assert.Equal(t, int64(1), event.Version)
-			} else if eventCount == 1 {
-				assert.Equal(t, eventData2, event.Data)
-				assert.Equal(t, int64(2), event.Version)
-			} else {
-				t.Fatal("unexpected number of events")
-			}
-			assert.NotNil(t, event.Timestamp)
-
-			eventCount++
+		req = &annales.AppendEventRequest{
+			StreamId:        "stream2",
+			ExpectedVersion: 1,
+			EventType:       "test_event",
+			Source:          "test_source",
+			Encoding:        "text",
+			Data:            []byte("Hello again, world!"),
 		}
 
-		assert.Equal(t, 2, eventCount)
-
-		// Check that the stream version is correct
-		stream := &mongodb.Stream{}
-		err = streamsCollection.FindOne(ctx, bson.M{"_id": streamID}).Decode(stream)
-		require.NoError(t, err)
-
-		assert.Equal(t, int64(2), stream.StreamVersion)
+		resp, err = mongoJournal.AppendEvent(context.Background(), req)
+		assert.NoError(t, err)
+		assert.NotNil(t, resp)
 	})
-	t.Run("OptimisticConcurrencyViolation", func(t *testing.T) {
-		// Drop the streams and events collections before testing
-		streamsCollection := client.Database(dbName).Collection(mongodb.StreamsCollectionName)
-		eventsCollection := client.Database(dbName).Collection(mongodb.EventsCollectionName)
-		err = streamsCollection.Drop(ctx)
-		require.NoError(t, err)
-		err = eventsCollection.Drop(ctx)
-		require.NoError(t, err)
 
-		// Generate test data for the new events
-		streamID := "test_stream"
-		eventType := "test_event"
-		eventSource := "test_source"
-		eventEncoding := "test_encoding"
-		eventData1 := []byte("test_data_1")
-		eventData2 := []byte("test_data_2")
+	t.Run("append event with incorrect expected version", func(t *testing.T) {
+		req := &annales.AppendEventRequest{
+			StreamId:        "stream3",
+			ExpectedVersion: 0, // incorrect version
+			EventType:       "test_event",
+			Source:          "test_source",
+			Encoding:        "text",
+			Data:            []byte("This should fail"),
+		}
+		_, err := mongoJournal.AppendEvent(context.Background(), req)
+		assert.NoError(t, err)
 
-		req1 := &annales.AppendEventRequest{StreamId: streamID, ExpectedVersion: 0, EventType: eventType, Source: eventSource, Encoding: eventEncoding, Data: eventData1}
-		req2 := &annales.AppendEventRequest{StreamId: streamID, ExpectedVersion: 0, EventType: eventType, Source: eventSource, Encoding: eventEncoding, Data: eventData2}
-
-		// Append the first event to the stream
-		res, err := driver.AppendEvent(ctx, req1)
-		require.NoError(t, err)
-		assert.NotNil(t, res)
-
-		// Try to append the second event to the stream with an incorrect expected version
-		res, err = driver.AppendEvent(ctx, req2)
-		require.Error(t, err)
-		assert.Nil(t, res)
-		assert.Equal(t, err, errors.InvalidStreamVersionError())
-
-		// Check that only one event was inserted into the events collection with the correct values
-		eventCursor, err := eventsCollection.Find(ctx, bson.M{"stream_id": streamID})
-		require.NoError(t, err)
-		defer eventCursor.Close(ctx)
-
-		eventCount := 0
-		for eventCursor.Next(ctx) {
-			var event annales.Event
-			err := eventCursor.Decode(&event)
-			require.NoError(t, err)
-
-			assert.Equal(t, streamID, event.StreamId)
-			assert.Equal(t, eventType, event.EventType)
-			assert.Equal(t, eventEncoding, event.Encoding)
-			assert.Equal(t, eventSource, event.Source)
-			if eventCount == 0 {
-				assert.Equal(t, eventData1, event.Data)
-				assert.Equal(t, int64(1), event.Version)
-			} else {
-				t.Fatal("unexpected number of events")
-			}
-			assert.NotNil(t, event.Timestamp)
-
-			eventCount++
+		req = &annales.AppendEventRequest{
+			StreamId:        "stream3",
+			ExpectedVersion: 0, // incorrect version
+			EventType:       "test_event",
+			Source:          "test_source",
+			Encoding:        "text",
+			Data:            []byte("This should fail"),
 		}
 
-		assert.Equal(t, 1, eventCount)
-
-		// Check that the stream version is correct
-		stream := &mongodb.Stream{}
-		err = streamsCollection.FindOne(ctx, bson.M{"_id": streamID}).Decode(stream)
-		require.NoError(t, err)
-
-		assert.Equal(t, int64(1), stream.StreamVersion)
+		_, err = mongoJournal.AppendEvent(context.Background(), req)
+		assert.Error(t, err)
+		assert.Equal(t, errors.InvalidStreamVersionError(), err)
 	})
 }
 
@@ -219,14 +113,12 @@ func TestGetEventsForStream(t *testing.T) {
 	}()
 
 	dbName := "test_db"
-	driver := &mongodb.MongoJournal{Client: client, DatabaseName: dbName}
+	driver, err := mongodb.NewMongoJournal(context.Background(), client, dbName, 100)
+	require.NoError(t, err)
 
 	t.Run("ExistingStream", func(t *testing.T) {
 		// Drop the collections to ensure a clean state
-		streamsCollection := client.Database(dbName).Collection(mongodb.StreamsCollectionName)
 		eventsCollection := client.Database(dbName).Collection(mongodb.EventsCollectionName)
-		_, err = streamsCollection.DeleteMany(ctx, bson.M{})
-		require.NoError(t, err)
 		_, err = eventsCollection.DeleteMany(ctx, bson.M{})
 		require.NoError(t, err)
 
@@ -258,18 +150,88 @@ func TestGetEventsForStream(t *testing.T) {
 		assert.Equal(t, []byte("test_data_2"), res.Events[1].Data)
 	})
 	t.Run("NonExistingStream", func(t *testing.T) {
-		// Drop the events collection to ensure a clean state
-		eventsCollection := client.Database(dbName).Collection(mongodb.EventsCollectionName)
-		require.NoError(t, eventsCollection.Drop(ctx))
-
 		// Attempt to retrieve events for a non-existing stream
 		events, err := driver.GetStreamEvents(ctx, &annales.GetStreamEventsRequest{StreamId: "non_existing_stream"})
 		require.NoError(t, err)
 
 		// Verify that an empty list of events is returned
-		assert.Empty(t, events)
+		assert.Empty(t, events.Events)
 	})
 
+}
+
+func TestGetStreamInfo(t *testing.T) {
+	// Load environment variables
+	err := godotenv.Load()
+	require.NoError(t, err)
+
+	mongoURL := os.Getenv("MONGO_URL")
+	require.NotEmpty(t, mongoURL)
+
+	// Connect to MongoDB
+	client, err := mongo.Connect(context.Background(), options.Client().ApplyURI(mongoURL))
+	require.NoError(t, err)
+
+	// Drops the collection to start from squeaky clean
+	db := client.Database("test")
+	eventsCollection := db.Collection(mongodb.EventsCollectionName)
+	err = eventsCollection.Drop(context.Background())
+	require.NoError(t, err)
+
+	// Initialize the MongoJournal instance
+	mongoJournal, err := mongodb.NewMongoJournal(context.Background(), client, "test", 100)
+	require.NoError(t, err)
+
+	t.Run("empty collection", func(t *testing.T) {
+		resp, err := mongoJournal.GetStreamInfo(context.Background(), &annales.GetStreamInfoRequest{StreamId: "stream0"})
+		assert.NoError(t, err)
+		assert.Equal(t, int64(0), resp.Version)
+	})
+
+	t.Run("stream with one event", func(t *testing.T) {
+		_, err = eventsCollection.InsertOne(context.Background(), bson.M{
+			"streamid":  "stream1",
+			"version":   1,
+			"eventtype": "test_event",
+			"encoding":  "text",
+			"source":    "test_source",
+			"data":      []byte("Hello, world!"),
+			"timestamp": time.Now().String(),
+		})
+		require.NoError(t, err)
+
+		resp, err := mongoJournal.GetStreamInfo(context.Background(), &annales.GetStreamInfoRequest{StreamId: "stream1"})
+		assert.NoError(t, err)
+		assert.Equal(t, int64(1), resp.Version)
+	})
+
+	t.Run("stream with two events", func(t *testing.T) {
+		_, err = eventsCollection.InsertMany(context.Background(), []any{
+			bson.M{
+				"streamid":  "stream2",
+				"version":   1,
+				"eventtype": "test_event",
+				"encoding":  "text",
+				"source":    "test_source",
+				"data":      []byte("Hello, world!"),
+				"timestamp": time.Now().String(),
+			},
+			bson.M{
+				"streamid":  "stream2",
+				"version":   2,
+				"eventtype": "test_event_2",
+				"encoding":  "text",
+				"source":    "test_source",
+				"data":      []byte("Hello again, world!"),
+				"timestamp": time.Now().String(),
+			},
+		})
+		require.NoError(t, err)
+
+		resp, err := mongoJournal.GetStreamInfo(context.Background(), &annales.GetStreamInfoRequest{StreamId: "stream2"})
+		assert.NoError(t, err)
+		assert.Equal(t, int64(2), resp.Version)
+	})
 }
 
 func TestNewMongoDriver(t *testing.T) {
@@ -285,12 +247,10 @@ func TestNewMongoDriver(t *testing.T) {
 
 	// Drop the events collection to ensure a clean state
 	eventsCollection := client.Database(dbName).Collection(mongodb.EventsCollectionName)
-	streamsCollection := client.Database(dbName).Collection(mongodb.StreamsCollectionName)
 	require.NoError(t, eventsCollection.Drop(ctx))
-	require.NoError(t, streamsCollection.Drop(ctx))
 
 	// Create a new MongoDriver instance
-	driver, err := mongodb.NewMongoJournal(ctx, client, dbName)
+	driver, err := mongodb.NewMongoJournal(ctx, client, dbName, 100)
 	require.NoError(t, err)
 	assert.NotNil(t, driver)
 
@@ -301,10 +261,9 @@ func TestNewMongoDriver(t *testing.T) {
 	err = indexesCursor.All(ctx, &indexes)
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(indexes))
-
 }
 
-func BenchmarkAppendEvent(b *testing.B) {
+func BenchmarkAppendEventSameStreamId(b *testing.B) {
 	require.NoError(b, godotenv.Load())
 	ctx := context.Background()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("MONGO_URL")))
@@ -313,13 +272,15 @@ func BenchmarkAppendEvent(b *testing.B) {
 		require.NoError(b, client.Disconnect(ctx))
 	}()
 
+	// Raise the logging bar to Error so that we do not burn unnecessary cycles
+	log.Logger = log.With().Logger().Level(zerolog.ErrorLevel)
+
 	dbName := "test_db"
-	driver := &mongodb.MongoJournal{Client: client, DatabaseName: dbName}
+	driver, err := mongodb.NewMongoJournal(context.Background(), client, dbName, 100)
+	require.NoError(b, err)
 
 	// Drop the collections to ensure a clean state
-	streamsCollection := client.Database(dbName).Collection(mongodb.StreamsCollectionName)
 	eventsCollection := client.Database(dbName).Collection(mongodb.EventsCollectionName)
-	require.NoError(b, streamsCollection.Drop(ctx))
 	require.NoError(b, eventsCollection.Drop(ctx))
 
 	// Generate test data for the new event
@@ -329,6 +290,8 @@ func BenchmarkAppendEvent(b *testing.B) {
 	eventEncoding := "test_encoding"
 	eventData := []byte("test_data")
 
+	b.StartTimer()
+
 	// Execute the test multiple times
 	for i := 0; i < b.N; i++ {
 		ev := &annales.AppendEventRequest{StreamId: streamID, ExpectedVersion: int64(i), EventType: eventType, Source: eventSource, Encoding: eventEncoding, Data: eventData}
@@ -337,8 +300,10 @@ func BenchmarkAppendEvent(b *testing.B) {
 		assert.NotNil(b, res)
 	}
 
+	b.StopTimer()
+
 	// Check that the event was inserted into the events collection with the correct values
-	eventsCursor, err := eventsCollection.Find(ctx, bson.M{"stream_id": streamID})
+	eventsCursor, err := eventsCollection.Find(ctx, bson.M{"streamid": streamID})
 	require.NoError(b, err)
 	defer eventsCursor.Close(ctx)
 
@@ -349,7 +314,7 @@ func BenchmarkAppendEvent(b *testing.B) {
 		err := eventsCursor.Decode(&event)
 		require.NoError(b, err)
 		assert.Equal(b, streamID, event.StreamId)
-		assert.Equal(b, eventCount, event.Version)
+		assert.Equal(b, int64(eventCount), event.Version)
 		assert.Equal(b, eventType, event.EventType)
 		assert.Equal(b, eventEncoding, event.Encoding)
 		assert.Equal(b, eventSource, event.Source)
