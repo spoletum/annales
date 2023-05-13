@@ -11,7 +11,8 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/serialx/hashring"
 	annales "github.com/spoletum/annales/gen"
-	"github.com/spoletum/annales/pkg/mongodb"
+	"github.com/spoletum/annales/pkg/journal"
+	"github.com/spoletum/annales/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -29,8 +30,12 @@ func TestNewAnnalesClient(t *testing.T) {
 		client, err := mongo.NewClient(options.Client().ApplyURI(os.Getenv("MONGODB_URL")))
 		require.NoError(t, err)
 
-		// Create the journal server
-		journal, err := mongodb.NewMongoJournal(context.Background(), client, "test", 100)
+		// Create the MongoDB repository
+		repo, err := repository.NewMongoRepository(context.Background(), client, "test")
+		require.NoError(t, err)
+
+		// Create the journal service
+		journal, err := journal.NewCachingJournal(repo, 100)
 		require.NoError(t, err)
 
 		// Add the code to start a new server
