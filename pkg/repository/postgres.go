@@ -1,16 +1,17 @@
-package postgres
+package repository
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
 
+	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 	annales "github.com/spoletum/annales/gen"
 	"github.com/spoletum/annales/pkg/errors"
 )
 
-const errInvalidStreamVersion = "pq: Invalid stream version"
+const DuplicateKeyError = "23505" // Can't believe the driver does not provide a constant
 
 type PostgresJournal struct {
 	annales.UnimplementedJournalServer
@@ -29,8 +30,9 @@ func (pd *PostgresJournal) AppendEvent(ctx context.Context, req *annales.AppendE
 	_, err = tx.Exec("CALL append_event($1, $2, $3, $4, $5, $6)", req.StreamId, req.ExpectedVersion, req.EventType, req.Encoding, req.Source, req.Data)
 	if err != nil {
 		// In case of error, we translate a known error and attempt a rollback
-		if err.Error() == errInvalidStreamVersion {
-			err = errors.InvalidStreamVersionError()
+		pqerr := err.(*pq.Error)
+		if pqerr.Code == DuplicateKeyError {
+			err = errors.InvalidStreamVersionError
 		}
 		_ = tx.Rollback()
 		return nil, err

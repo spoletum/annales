@@ -1,13 +1,11 @@
-package mongodb
+package repository
 
 import (
 	"context"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/rs/zerolog/log"
 	annales "github.com/spoletum/annales/gen"
-	"github.com/spoletum/annales/pkg/journal"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -20,15 +18,14 @@ const (
 	fieldStreamVersion   = "version"
 )
 
-type MongoJournal struct {
-	journal.AbstractCachingJournal
+type MongoRepository struct {
 	client       *mongo.Client // the MongoDB driver
 	databaseName string        // the name of the database to use
 }
 
 // AppendEventImpl appends a new event to the specified stream in MongoDB
 // Assumes that all the optimistic locking has been performed by AbstractCachingJournal
-func (md *MongoJournal) AppendEventImpl(ctx context.Context, in *annales.AppendEventRequest) (*annales.AppendEventResponse, error) {
+func (md *MongoRepository) AppendEvent(ctx context.Context, in *annales.AppendEventRequest) (*annales.AppendEventResponse, error) {
 
 	eventsCollection := md.client.Database(md.databaseName).Collection(EventsCollectionName)
 	newEvent := annales.Event{
@@ -49,7 +46,7 @@ func (md *MongoJournal) AppendEventImpl(ctx context.Context, in *annales.AppendE
 	return &annales.AppendEventResponse{}, nil
 }
 
-func (j *MongoJournal) GetStreamEvents(ctx context.Context, req *annales.GetStreamEventsRequest) (*annales.GetStreamEventsResponse, error) {
+func (j *MongoRepository) GetStreamEvents(ctx context.Context, req *annales.GetStreamEventsRequest) (*annales.GetStreamEventsResponse, error) {
 
 	// Run the query and exit if an error occurs
 	filter := bson.M{fieldStreamId: req.StreamId}
@@ -72,7 +69,7 @@ func (j *MongoJournal) GetStreamEvents(ctx context.Context, req *annales.GetStre
 	return &annales.GetStreamEventsResponse{Events: events}, nil
 }
 
-func (md *MongoJournal) GetStreamInfoImpl(ctx context.Context, in *annales.GetStreamInfoRequest) (*annales.GetStreamInfoResponse, error) {
+func (md *MongoRepository) GetStreamInfo(ctx context.Context, in *annales.GetStreamInfoRequest) (*annales.GetStreamInfoResponse, error) {
 
 	eventsCollection := md.client.Database(md.databaseName).Collection(EventsCollectionName)
 	logger := log.With().Str("streamId", in.StreamId).Str("service", "GetStreamInfo").Logger()
@@ -110,7 +107,7 @@ func (md *MongoJournal) GetStreamInfoImpl(ctx context.Context, in *annales.GetSt
 	return out, nil
 }
 
-func NewMongoJournal(ctx context.Context, client *mongo.Client, dbName string, cacheSize int) (*MongoJournal, error) {
+func NewMongoRepository(ctx context.Context, client *mongo.Client, dbName string) (*MongoRepository, error) {
 
 	// Configure logging
 	logger := log.With().Str("service", "NewMongoJournal").Logger()
@@ -130,20 +127,8 @@ func NewMongoJournal(ctx context.Context, client *mongo.Client, dbName string, c
 	}
 	logger.Info().Str("index_name", index).Msg("Index created successfully")
 
-	// Initialize the cache to store the stream versions
-	// TODO cache size should be set using an external parameter
-	cache, err := lru.New2Q[string, int64](cacheSize)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Debug().Int("cache_size", cacheSize).Msg("Cache initialized")
-
 	logger.Info().Msg("mongo driver initialized")
-	return &MongoJournal{
-		AbstractCachingJournal: journal.AbstractCachingJournal{
-			StreamVersions: cache,
-		},
+	return &MongoRepository{
 		client:       client,
 		databaseName: dbName,
 	}, nil

@@ -1,4 +1,4 @@
-package mongodb_test
+package repository_test
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 	annales "github.com/spoletum/annales/gen"
 	"github.com/spoletum/annales/pkg/errors"
-	"github.com/spoletum/annales/pkg/mongodb"
+	"github.com/spoletum/annales/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -19,7 +19,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func TestAppendEvent(t *testing.T) {
+func TestMongoAppendEvent(t *testing.T) {
 	const dbName = "test_db"
 	// Set up the MongoDB client and database for testing
 	client, _ := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
@@ -29,7 +29,7 @@ func TestAppendEvent(t *testing.T) {
 	// Ensure the database is clean before running the tests
 	client.Database(dbName).Drop(context.Background())
 
-	mongoJournal, err := mongodb.NewMongoJournal(context.Background(), client, dbName, 100)
+	mongoJournal, err := repository.NewMongoRepository(context.Background(), client, dbName)
 	require.NoError(t, err)
 
 	t.Run("append new event to new stream", func(t *testing.T) {
@@ -99,11 +99,11 @@ func TestAppendEvent(t *testing.T) {
 
 		_, err = mongoJournal.AppendEvent(context.Background(), req)
 		assert.Error(t, err)
-		assert.Equal(t, errors.InvalidStreamVersionError(), err)
+		assert.Equal(t, errors.InvalidStreamVersionError, err)
 	})
 }
 
-func TestGetEventsForStream(t *testing.T) {
+func TestMongoGetEventsForStream(t *testing.T) {
 	require.NoError(t, godotenv.Load())
 	ctx := context.Background()
 	client, err := mongo.Connect(ctx, options.Client().ApplyURI(os.Getenv("MONGO_URL")))
@@ -113,12 +113,12 @@ func TestGetEventsForStream(t *testing.T) {
 	}()
 
 	dbName := "test_db"
-	driver, err := mongodb.NewMongoJournal(context.Background(), client, dbName, 100)
+	driver, err := repository.NewMongoRepository(context.Background(), client, dbName)
 	require.NoError(t, err)
 
 	t.Run("ExistingStream", func(t *testing.T) {
 		// Drop the collections to ensure a clean state
-		eventsCollection := client.Database(dbName).Collection(mongodb.EventsCollectionName)
+		eventsCollection := client.Database(dbName).Collection(repository.EventsCollectionName)
 		_, err = eventsCollection.DeleteMany(ctx, bson.M{})
 		require.NoError(t, err)
 
@@ -174,12 +174,12 @@ func TestGetStreamInfo(t *testing.T) {
 
 	// Drops the collection to start from squeaky clean
 	db := client.Database("test")
-	eventsCollection := db.Collection(mongodb.EventsCollectionName)
+	eventsCollection := db.Collection(repository.EventsCollectionName)
 	err = eventsCollection.Drop(context.Background())
 	require.NoError(t, err)
 
 	// Initialize the MongoJournal instance
-	mongoJournal, err := mongodb.NewMongoJournal(context.Background(), client, "test", 100)
+	mongoJournal, err := repository.NewMongoRepository(context.Background(), client, "test")
 	require.NoError(t, err)
 
 	t.Run("empty collection", func(t *testing.T) {
@@ -246,11 +246,11 @@ func TestNewMongoDriver(t *testing.T) {
 	dbName := "test_db"
 
 	// Drop the events collection to ensure a clean state
-	eventsCollection := client.Database(dbName).Collection(mongodb.EventsCollectionName)
+	eventsCollection := client.Database(dbName).Collection(repository.EventsCollectionName)
 	require.NoError(t, eventsCollection.Drop(ctx))
 
 	// Create a new MongoDriver instance
-	driver, err := mongodb.NewMongoJournal(ctx, client, dbName, 100)
+	driver, err := repository.NewMongoRepository(ctx, client, dbName)
 	require.NoError(t, err)
 	assert.NotNil(t, driver)
 
@@ -276,11 +276,11 @@ func BenchmarkAppendEventSameStreamId(b *testing.B) {
 	log.Logger = log.With().Logger().Level(zerolog.ErrorLevel)
 
 	dbName := "test_db"
-	driver, err := mongodb.NewMongoJournal(context.Background(), client, dbName, 100)
+	driver, err := repository.NewMongoRepository(context.Background(), client, dbName)
 	require.NoError(b, err)
 
 	// Drop the collections to ensure a clean state
-	eventsCollection := client.Database(dbName).Collection(mongodb.EventsCollectionName)
+	eventsCollection := client.Database(dbName).Collection(repository.EventsCollectionName)
 	require.NoError(b, eventsCollection.Drop(ctx))
 
 	// Generate test data for the new event

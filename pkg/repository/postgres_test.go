@@ -1,4 +1,4 @@
-package postgres_test
+package repository_test
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog/log"
 	annales "github.com/spoletum/annales/gen"
 	"github.com/spoletum/annales/pkg/errors"
-	"github.com/spoletum/annales/pkg/postgres"
+	"github.com/spoletum/annales/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -36,7 +36,7 @@ func TestAppendEvent(t *testing.T) {
 	_, err = db.Exec("DELETE FROM streams")
 	require.NoError(t, err)
 
-	driver, err := postgres.NewPostgresJournal(db)
+	driver, err := repository.NewPostgresJournal(db)
 	require.NoError(t, err)
 
 	// Create a common stream UUID for all tests
@@ -87,7 +87,7 @@ func TestAppendEvent(t *testing.T) {
 		// Call the function with expected_version = 0 (should fail because stream version is 2)
 		res, err := driver.AppendEvent(context.Background(), request)
 		assert.Error(t, err)
-		assert.Equal(t, errors.InvalidStreamVersionError(), err)
+		assert.Equal(t, errors.InvalidStreamVersionError, err)
 		assert.Nil(t, res)
 	})
 }
@@ -98,7 +98,7 @@ func TestGetEventsByStream(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	driver, err := postgres.NewPostgresJournal(db)
+	driver, err := repository.NewPostgresJournal(db)
 	require.NoError(t, err)
 
 	// Clear the events and streams tables before starting the test
@@ -160,7 +160,7 @@ func BenchmarkAppendEvent(b *testing.B) {
 	defer db.Close()
 
 	// Create a new PostgresJournal using the database connection
-	journal, err := postgres.NewPostgresJournal(db)
+	journal, err := repository.NewPostgresJournal(db)
 	if err != nil {
 		b.Fatal(err)
 	}

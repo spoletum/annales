@@ -12,7 +12,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	annales "github.com/spoletum/annales/gen"
-	"github.com/spoletum/annales/pkg/mongodb"
+	"github.com/spoletum/annales/pkg/journal"
+	"github.com/spoletum/annales/pkg/repository"
 	"github.com/urfave/cli/v2"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -113,10 +114,13 @@ func startServer(ctx *cli.Context) error {
 		_ = client.Disconnect(context.Background())
 	}()
 
-	// Create the MongoDB Driver
-	driver, err = mongodb.NewMongoJournal(context.Background(), client, "eventstore", 100)
+	// TODO where do we get the database name from?
+	repo, err := repository.NewMongoRepository(context.Background(), client, "annales")
+
+	// Creates the caching journal
+	driver, err = journal.NewCachingJournal(repo, 100)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Error starting the MongoDB driver")
+		log.Fatal().Err(err).Msg("Error starting the MongoDB journal")
 	}
 
 	// Start the HTTP server on its own goroutine
