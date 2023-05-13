@@ -36,7 +36,7 @@ func TestAppendEvent(t *testing.T) {
 	_, err = db.Exec("DELETE FROM streams")
 	require.NoError(t, err)
 
-	driver, err := repository.NewPostgresJournal(db)
+	driver, err := repository.NewPostgresRepository(db)
 	require.NoError(t, err)
 
 	// Create a common stream UUID for all tests
@@ -98,7 +98,7 @@ func TestGetEventsByStream(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	driver, err := repository.NewPostgresJournal(db)
+	driver, err := repository.NewPostgresRepository(db)
 	require.NoError(t, err)
 
 	// Clear the events and streams tables before starting the test
@@ -160,7 +160,7 @@ func BenchmarkAppendEvent(b *testing.B) {
 	defer db.Close()
 
 	// Create a new PostgresJournal using the database connection
-	journal, err := repository.NewPostgresJournal(db)
+	journal, err := repository.NewPostgresRepository(db)
 	if err != nil {
 		b.Fatal(err)
 	}
