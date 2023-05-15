@@ -24,7 +24,7 @@ jobs:
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         volumes:
-          - ./pkg/repository/postgres.sql:/docker-entrypoint-initdb.d/init.sql
+          -  ${{ github.workspace }}/pkg/repository/postgres.sql:/docker-entrypoint-initdb.d/init.sql
 
       mongo:
         image: mongo:6.0
