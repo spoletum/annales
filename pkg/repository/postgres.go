@@ -13,7 +13,7 @@ import (
 
 const (
 	sqlAppendEvent       = "INSERT INTO events (stream_id, stream_version, event_type, event_encoding, event_source, event_data) VALUES ($1, $2, $3, $4, $5, $6)"
-	sqlGetEventsByStream = "SELECT event_id, stream_id, stream_version, event_type, event_encoding, event_source, event_data, event_ts FROM events WHERE stream_id=$1 ORDER BY stream_version"
+	sqlGetEventsByStream = "SELECT stream_id, stream_version, event_type, event_encoding, event_source, event_data, event_ts FROM events WHERE stream_id=$1 ORDER BY stream_version"
 	sqlGetStreamVersion  = "SELECT MAX(stream_version) FROM events WHERE stream_id = $1"
 	errDuplicateKey      = "23505" // Can't believe the driver does not provide a constant
 )
@@ -32,7 +32,7 @@ func (pd *PostgresRepository) AppendEvent(ctx context.Context, req *annales.Appe
 	}
 
 	// Executes the insert in the table
-	_, err = tx.Exec(sqlAppendEvent, req.StreamId, req.ExpectedVersion, req.EventType, req.Encoding, req.Source, req.Data)
+	_, err = tx.Exec(sqlAppendEvent, req.StreamId, req.ExpectedVersion+1, req.EventType, req.Encoding, req.Source, req.Data)
 	if err != nil {
 		// In case of error, we translate a known error and attempt a rollback
 		pqerr := err.(*pq.Error)
@@ -66,7 +66,7 @@ func (pd *PostgresRepository) GetStreamEvents(ctx context.Context, req *annales.
 	events := make([]*annales.Event, 0)
 	for rows.Next() {
 		event := &annales.Event{}
-		err := rows.Scan(&event.EventId, &event.StreamId, &event.Version, &event.EventType, &event.Encoding, &event.Source, &event.Data, &event.Timestamp)
+		err := rows.Scan(&event.StreamId, &event.Version, &event.EventType, &event.Encoding, &event.Source, &event.Data, &event.Timestamp)
 		if err != nil {
 			logger.Error().Err(err).Msg("Failed to scan events") // Log an error message
 			return nil, fmt.Errorf("failed to scan events: %v", err)

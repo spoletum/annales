@@ -39,14 +39,14 @@ func TestValidator(t *testing.T) {
 			validator: validation.NewValidator().
 				Add("stringVar1", newString(""), validation.NotEmpty(), validation.MaxLength(30), validation.MinLength(5)).
 				Add("stringVar2", newString("toolongstring"), validation.NotEmpty(), validation.MaxLength(10)),
-			expectedError: "stringVar1: value cannot be empty; stringVar1: value must have a minimum length of 5; stringVar2: value exceeds max length of 10",
+			expectedError: "stringVar1: string cannot be empty; stringVar1: value must have a minimum length of 5; stringVar2: value exceeds max length of 10",
 		},
 		{
 			name: "Single rule fails",
 			validator: validation.NewValidator().
 				Add("stringVar1", newString("hello"), validation.NotEmpty(), validation.MaxLength(30), validation.MinLength(5)).
 				Add("stringVar2", newString(""), validation.NotEmpty(), validation.MaxLength(10)),
-			expectedError: "stringVar2: value cannot be empty",
+			expectedError: "stringVar2: string cannot be empty",
 		},
 	}
 

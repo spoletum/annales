@@ -101,7 +101,7 @@ func (md *MongoRepository) GetStreamInfo(ctx context.Context, in *annales.GetStr
 		}
 
 		logger.Debug().Any("record", &rec).Msg("stream exists in persistence")
-		version32 := rec[fieldStreamVersion].(int32)
+		version32 := rec[fieldStreamVersion].(int64)
 		out.Version = int64(version32)
 	}
 	return out, nil

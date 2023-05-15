@@ -18,6 +18,9 @@ $(GEN)/%.proto: $(GEN)
 $(GEN)/%.pb.go: $(GEN)/%.proto
 	protoc -I$(GEN) --go_out=paths=source_relative:$(GEN) $<
 
+$(GEN)/%.proto:
+	curl -LOs https://raw.githubusercontent.com/spoletum/schemas/main/$(basename $@)
+
 $(GEN)/%_grpc.pb.go: $(GEN)/%.proto
 	protoc -I$(GEN) --go-grpc_out=paths=source_relative:$(GEN) $<
 

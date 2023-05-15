@@ -4,7 +4,7 @@ DROP TABLE IF EXISTS events;
 
 CREATE TABLE events (
     event_id BIGSERIAL PRIMARY KEY,
-    stream_id CHAR(36) NOT NULL REFERENCES streams(stream_id),
+    stream_id CHAR(36) NOT NULL,
     stream_version INTEGER NOT NULL,
     event_type TEXT NOT NULL,
     event_encoding TEXT NOT NULL,
