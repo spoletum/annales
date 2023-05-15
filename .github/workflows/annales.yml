@@ -23,8 +23,6 @@ jobs:
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
           POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-        volumes:
-          -  ${{ github.workspace }}/pkg/repository/postgres.sql:/docker-entrypoint-initdb.d/init.sql
 
       mongo:
         image: mongo:6.0
@@ -60,6 +58,9 @@ jobs:
           curl -LOs https://raw.githubusercontent.com/spoletum/schemas/main/annales.proto
           mkdir -p gen
           protoc -I. --go_out=paths=source_relative:gen --go-grpc_out=paths=source_relative:gen annales.proto
+
+      - name: Deploy PostgreSQL schema
+        run: psql -U postgres -f pkg/repository/postgres.sql
 
       - name: Go test
         run: go test ./...
