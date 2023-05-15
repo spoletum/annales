@@ -18,7 +18,10 @@ func TestAppendEvent(t *testing.T) {
 
 	ctx := context.Background()
 
-	require.NoError(t, godotenv.Load())
+	err := godotenv.Load()
+	if err != nil {
+		require.True(t, os.IsNotExist(err))
+	}
 
 	// Open a connection to the database
 	db, err := sql.Open("postgres", os.Getenv(("POSTGRESQL_URL")))

@@ -19,7 +19,11 @@ func TestMongoRepository(t *testing.T) {
 	ctx := context.Background()
 
 	// Read the URL of the mongodb connection from dotenv
-	require.NoError(t, godotenv.Load())
+	err := godotenv.Load()
+	if err != nil {
+		require.True(t, os.IsNotExist(err))
+	}
+
 	url := os.Getenv("MONGODB_URL")
 
 	// Establish a connection with MongoDB
