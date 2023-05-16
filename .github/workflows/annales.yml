@@ -46,7 +46,7 @@ jobs:
 
       - name: Install Go protobuf and gRPC plugins
         run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0e
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
           echo "$GOPATH/bin" >> $GITHUB_PATH
 
