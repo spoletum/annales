@@ -60,7 +60,7 @@ jobs:
           protoc -I. --go_out=paths=source_relative:gen --go-grpc_out=paths=source_relative:gen annales.proto
 
       - name: Deploy PostgreSQL schema
-        run: psql -U postgres -f pkg/repository/postgres.sql
+        run: psql -h localhost -p 5432 -U postgres -f pkg/repository/postgres.sql
 
       - name: Go test
         run: go test ./...
