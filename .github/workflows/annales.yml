@@ -63,7 +63,12 @@ jobs:
         run: psql -f pkg/repository/postgres.sql ${{ secrets.POSTGRESQL_URL }}
 
       - name: Go test
+        env:
+          COVERAGE_OPTS: "-coverprofile=coverage.txt -covermode=atomic"      
         run: go test ./...
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3        
 
       - name: Build binary
         run: go build -o bin/annales cmd/annales.go
@@ -74,5 +79,3 @@ jobs:
           name: annales
           path: bin/annales
 
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
