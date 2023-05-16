@@ -20,9 +20,9 @@ jobs:
         ports:
           - 5432:5432
         env:
-          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
-          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: eventstore
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRESQL_PASSWORD }}
 
       mongo:
         image: mongo:6.0
@@ -46,7 +46,7 @@ jobs:
 
       - name: Install Go protobuf and gRPC plugins
         run: |
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0e
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
           echo "$GOPATH/bin" >> $GITHUB_PATH
 
@@ -59,8 +59,8 @@ jobs:
           mkdir -p gen
           protoc -I. --go_out=paths=source_relative:gen --go-grpc_out=paths=source_relative:gen annales.proto
 
-      - name: Deploy PostgreSQL schema
-        run: psql -h postgres -p 5432 -U postgres -f pkg/repository/postgres.sql
+      - name: Deploy PostgereSQL schema
+        run: psql -f pkg/repository/postgres.sql ${{ secrets.POSTGRESQL_URL }}
 
       - name: Go test
         run: go test ./...
