@@ -34,18 +34,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3      
 
-      - name: Install Protoc
+      - name: Setup Golang
+        uses: actions/setup-go@v4
+
+      - name: Install Protoc toolchain
         run: |
           curl -L -o protoc.zip https://github.com/protocolbuffers/protobuf/releases/download/v22.3/protoc-22.3-linux-x86_64.zip 
           sudo unzip protoc.zip -d /usr/local bin/protoc
           sudo chmod +x /usr/local/bin/protoc
-          rm protoc.zip        
-
-      - name: Setup Golang
-        uses: actions/setup-go@v4
-
-      - name: Install Go protobuf and gRPC plugins
-        run: |
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
           echo "$GOPATH/bin" >> $GITHUB_PATH
@@ -62,13 +58,13 @@ jobs:
       - name: Deploy PostgereSQL schema
         run: psql -f pkg/repository/postgres.sql ${{ secrets.POSTGRESQL_URL }}
 
-      - name: Go test
-        env:
-          COVERAGE_OPTS: "-coverprofile=coverage.txt -covermode=atomic"      
-        run: go test ./...
+      - name: Run tests
+        run: go test -coverprofile=coverage.txt -covermode=atomic ./...
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3        
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Build binary
         run: go build -o bin/annales cmd/annales.go
