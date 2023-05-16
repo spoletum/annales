@@ -64,3 +64,12 @@ jobs:
 
       - name: Go test
         run: go test ./...
+
+      - name: Build binary
+        run: go build -o bin/annales cmd/annales.go
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: annales
+          path: bin/annales
