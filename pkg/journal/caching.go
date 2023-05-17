@@ -98,7 +98,7 @@ func NewCachingJournal(repository repository.Repository, cacheSize int) (*Cachin
 	if repository == nil {
 		return nil, ErrInvalidRepository
 	}
-	cache, err := lru.New2Q[string, int64](128)
+	cache, err := lru.New2Q[string, int64](cacheSize)
 	if err != nil {
 		return nil, err
 	}
