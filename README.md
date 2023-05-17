@@ -1,0 +1,1 @@
+[![codecov](https://codecov.io/github/spoletum/annales/branch/main/graph/badge.svg?token=LJHQDIPRQH)](https://codecov.io/github/spoletum/annales)
