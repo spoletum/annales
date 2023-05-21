@@ -1,0 +1,38 @@
+name: Publish Workflow
+
+on: 
+  push:
+    tags:
+      - '*'
+  
+jobs:
+    
+  Publish:
+  
+    runs-on: ubuntu-latest
+  
+    steps:
+  
+      - name: Checkout Code
+        uses: actions/checkout@v3      
+  
+      - name: Download binary
+        uses: actions/download-artifact@v3
+        with:
+          name: annales
+          path: bin/annales
+  
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_PAT }}
+  
+      - name: Release Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ghcr.io/spolab/eventstore:${{ github.ref_name }}
