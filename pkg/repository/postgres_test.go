@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	annales "github.com/spoletum/annales/gen"
+	"github.com/spoletum/annales/pkg/errors"
 	"github.com/spoletum/annales/pkg/repository"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -84,21 +85,23 @@ func TestAppendEvent(t *testing.T) {
 		}
 	})
 
-	t.Run("Get info and events from empty repository", func(t *testing.T) {
-		err := godotenv.Load()
-		if err != nil {
-			require.True(t, os.IsNotExist(err))
+	t.Run("Duplicate append results in InvalidStreamVersionError", func(t *testing.T) {
+		req := &annales.AppendEventRequest{
+			StreamId:        "duplicateStream",
+			ExpectedVersion: 0,
+			EventType:       "testEvent",
+			Encoding:        "JSON",
+			Source:          "testSource",
+			Data:            []byte("testData"),
 		}
-
-		// Open a connection to the database
-		db, err := sql.Open("postgres", os.Getenv(("POSTGRESQL_URL")))
+		_, err := repo.AppendEvent(ctx, req)
 		require.NoError(t, err)
-		defer db.Close()
+		_, err = repo.AppendEvent(ctx, req)
+		assert.ErrorIs(t, errors.InvalidStreamVersionError, err)
+	})
 
-		repo, err := repository.NewPostgresRepository(db)
-		require.NoError(t, err)
+	t.Run("Get info and events from empty repository", func(t *testing.T) {
 
-		ctx := context.Background()
 		streamID := "testStream"
 
 		// Verify GetStreamInfo on empty repository
