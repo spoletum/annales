@@ -85,8 +85,18 @@ func TestAppendEvent(t *testing.T) {
 	})
 
 	t.Run("Get info and events from empty repository", func(t *testing.T) {
+		err := godotenv.Load()
+		if err != nil {
+			require.True(t, os.IsNotExist(err))
+		}
 
-		repo := repository.NewInMemoryRepository()
+		// Open a connection to the database
+		db, err := sql.Open("postgres", os.Getenv(("POSTGRESQL_URL")))
+		require.NoError(t, err)
+		defer db.Close()
+
+		repo, err := repository.NewPostgresRepository(db)
+		require.NoError(t, err)
 
 		ctx := context.Background()
 		streamID := "testStream"

@@ -22,7 +22,6 @@ services:
       - 5432:5432
     volumes:
       - ../pkg/repository/postgres.sql:/docker-entrypoint-initdb.d/init.sql
-      - ../postgres:/var/lib/postgresql/data
     networks:
       - annales
 

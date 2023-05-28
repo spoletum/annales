@@ -14,7 +14,7 @@ import (
 const (
 	sqlAppendEvent       = "INSERT INTO events (stream_id, stream_version, event_type, event_encoding, event_source, event_data) VALUES ($1, $2, $3, $4, $5, $6)"
 	sqlGetEventsByStream = "SELECT stream_id, stream_version, event_type, event_encoding, event_source, event_data, event_ts FROM events WHERE stream_id=$1 ORDER BY stream_version"
-	sqlGetStreamVersion  = "SELECT MAX(stream_version) FROM events WHERE stream_id = $1"
+	sqlGetStreamVersion  = "SELECT COALESCE(MAX(stream_version), 0) FROM events WHERE stream_id = $1"
 	errDuplicateKey      = "23505" // Can't believe the driver does not provide a constant
 )
 
