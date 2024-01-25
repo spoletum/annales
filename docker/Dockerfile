@@ -1,4 +1,4 @@
-FROM alpine:3.18.3
+FROM alpine:3
 
 LABEL org.opencontainers.image.source="https://github.com/spoletum/annales"
 LABEL org.opencontainers.image.description="The super-simplistic event store"
